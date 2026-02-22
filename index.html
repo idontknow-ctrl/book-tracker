@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>The Plot Thickens Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>The Plot Thickens Tracker</h1>
+    <p class="app-description">Reading Competition Logger</p>
+    <div style="position:absolute;top:12px;right:12px">
+      <button type="button" id="adminBtn" style="padding:8px 16px;background:#666;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px">Admin</button>
+    </div>
+  </header>
+
+  <!-- Login Modal -->
+  <div id="loginModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center">
+    <div style="background:white;padding:24px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);width:90%;max-width:400px">
+      <h2 style="margin:0 0 16px 0">Admin Login</h2>
+      <form id="loginForm">
+        <div style="margin-bottom:12px">
+          <label style="display:block;margin-bottom:4px;font-weight:500">Username</label>
+          <input type="text" id="loginUsername" placeholder="Enter username" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box">
+        </div>
+        <div style="margin-bottom:16px">
+          <label style="display:block;margin-bottom:4px;font-weight:500">Password</label>
+          <input type="password" id="loginPassword" placeholder="Enter password" required style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box">
+        </div>
+        <div id="loginError" style="color:#c0392b;margin-bottom:12px;display:none"></div>
+        <div style="display:flex;gap:8px">
+          <button type="submit" style="flex:1;padding:10px;background:#27ae60;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:500">Login</button>
+          <button type="button" id="closeLogin" style="flex:1;padding:10px;background:#95a5a6;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:500">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <main class="container">
+
+    <section class="card">
+      <form id="entryForm">
+        <!-- About You Section -->
+        <div class="form-section">
+          <h2 class="section-header">About You</h2>
+          <div class="form-group">
+            <label>Name</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="text" id="name" placeholder="Full name" required style="flex:1">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Platform</label>
+            <div class="platform-cards">
+              <label class="platform-card platform-card-large" data-platform="facebook">
+                <input type="radio" name="platform" value="facebook" required>
+                <img src="assets/Facebook_image.jpg" alt="Facebook" class="platform-thumbnail platform-thumbnail-large">
+                <span class="platform-label">Your Fairy Smut Lover</span>
+              </label>
+              <label class="platform-card platform-card-large" data-platform="discord">
+                <input type="radio" name="platform" value="discord" required>
+                <img src="assets/smutty-book-baddies-badge.png" alt="Smutty Book Baddies" class="platform-thumbnail platform-thumbnail-large" style="object-fit:contain;background:#f5f5f5;padding:8px">
+                <span class="platform-label">Smutty Book Baddies</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Discord Name</label>
+            <input type="text" id="discord" placeholder="username#1234">
+          </div>
+
+          <div class="form-group">
+            <label>Team Name</label>
+            <select id="team" required>
+              <option value="">Select a team...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Books Section -->
+        <div class="form-section">
+          <h2 class="section-header">Books</h2>
+          <div class="form-group">
+            <label>Book Title</label>
+            <div class="book-autocomplete">
+              <input type="text" id="book" placeholder="Book title" required autocomplete="off">
+              <div id="bookSuggestions" class="book-suggestions"></div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Author Name <span style="color:#c0392b">*</span></label>
+            <input type="text" id="author" placeholder="Author name" required>
+          </div>
+
+          <div class="form-group">
+            <label>Pages Read</label>
+            <input type="number" id="pages" min="1" placeholder="e.g. 50" required>
+            <small class="disclaimer">Auto populated page count may not always be accurate. Please double check and correct before submitting.</small>
+          </div>
+
+          <div class="form-group">
+            <label>Completion Date <span style="color:#c0392b">*</span></label>
+            <input type="date" id="completionDate" required>
+          </div>
+
+          <div class="form-group">
+            <label>What was your favorite scene and why? <span style="color:#c0392b">*</span></label>
+            <textarea id="favoriteScene" placeholder="Write at least 20 characters about your favorite scene..." rows="4" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:4px;font-size:16px;font-family:inherit;resize:vertical" required minlength="20"></textarea>
+            <small class="disclaimer">Minimum 20 characters required</small>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="submitBtn" disabled>Save Reading</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Reports</h2>
+      <p style="margin-bottom:16px;color:#666;font-size:0.95rem">Populate Name, Platform and Team above to show team total.</p>
+      <div class="controls" style="display:none">
+        <label>Filter Team
+          <input type="text" id="filterTeam" placeholder="leave blank to show all">
+        </label>
+        <button id="refresh">Refresh</button>
+      </div>
+      <div id="reportArea"></div>
+    </section>
+
+    <section class="card">
+      <h2>View My Entries</h2>
+      <div class="view-row">
+        <label>Enter your Discord Name
+          <input type="text" id="viewDiscord" placeholder="username#1234">
+        </label>
+        <button id="viewMy">View My Entries (Discord)</button>
+      </div>
+      <div class="view-row">
+        <label>Enter your Facebook Name
+          <input type="text" id="viewFacebook" placeholder="Full name on Facebook">
+        </label>
+        <button id="viewMyFb">View My Entries (Facebook)</button>
+      </div>
+      <div id="myEntries"></div>
+    </section>
+
+    <section class="card" id="adminTeams" style="display:none">
+      <h2>Admin: Manage Teams</h2>
+      <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+        <input type="text" id="newTeamName" placeholder="New team name" style="flex:1;min-width:150px">
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <label style="font-size:0.85rem;font-weight:600;margin:0">Select Platform</label>
+          <select id="newTeamPlatform" style="flex:0 0 auto">
+            <option value="facebook">Your Fairy Smut Lover (Facebook)</option>
+            <option value="discord">Smutty Book Baddies (Discord)</option>
+          </select>
+        </div>
+        <button id="addTeam">Add Team</button>
+      </div>
+      <div id="teamsList"></div>
+      
+      <h3 style="margin-top:24px;margin-bottom:12px">Export Data</h3>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <label style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:0.85rem;font-weight:600;margin:0">Select Team to Export</span>
+          <select id="exportTeam" style="flex:0 0 auto">
+            <option value="all">All Teams</option>
+          </select>
+        </label>
+        <button id="exportCsv" style="align-self:flex-end">Export CSV</button>
+      </div>
+      
+      <h3 style="margin-top:24px;margin-bottom:12px">Clear All Entries</h3>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="clearPlatform" style="flex:0 0 auto">
+          <option value="all">All Platforms</option>
+          <option value="facebook">Your Fairy Smut Lover (Facebook) Only</option>
+          <option value="discord">Smutty Book Baddies (Discord) Only</option>
+        </select>
+        <button id="clearAll" style="background:#c0392b">Clear Entries</button>
+      </div>
+    </section>
+
+    <footer>
+      <small>Data stored locally in your browser (localStorage) or on the server when available.</small>
+    </footer>
+  </main>
+
+  <div id="adminLoginModal" class="modal" style="display:none">
+    <div class="modal-content">
+      <h2>Admin Login</h2>
+      <form id="adminLoginForm" style="display:flex;flex-direction:column;gap:12px">
+        <input type="text" id="adminUsername" placeholder="Username" required>
+        <input type="password" id="adminPassword" placeholder="Password" required>
+        <div style="display:flex;gap:8px">
+          <button type="submit" id="adminLoginBtn">Login</button>
+          <button type="button" id="adminLoginCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="status" aria-live="polite" class="status" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
