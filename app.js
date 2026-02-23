@@ -1,6 +1,7 @@
 // Book Tracker front-end with optional backend API (falls back to localStorage)
 const STORAGE_KEY = 'bookTracker.entries.v1'
 const NAME_KEY = 'bookTracker.savedName'
+const DISCORD_KEY = 'bookTracker.savedDiscord'
 const ADMIN_TOKEN_KEY = 'bookTracker.adminToken'
 const API_BASE = '/api'
 let useApi = false
@@ -110,6 +111,19 @@ function clearSavedName(){
   localStorage.removeItem(NAME_KEY)
   const nameInput = document.getElementById('name')
   if(nameInput) nameInput.value = ''
+}
+
+function saveDiscordName(name, discord){
+  if(!discord) return
+  const saved = JSON.parse(localStorage.getItem(DISCORD_KEY) || '{}')
+  saved[name.toLowerCase()] = discord
+  localStorage.setItem(DISCORD_KEY, JSON.stringify(saved))
+}
+
+function loadDiscordName(name){
+  if(!name) return ''
+  const saved = JSON.parse(localStorage.getItem(DISCORD_KEY) || '{}')
+  return saved[name.toLowerCase()] || ''
 }
 
 async function checkBackend(){
@@ -242,6 +256,36 @@ async function autoPopulateTeam(){
   }
 }
 
+async function autoPopulateDiscord(){
+  const nameInput = document.getElementById('name')
+  const discordInput = document.getElementById('discord')
+  const platformRadio = document.querySelector('input[name="platform"]:checked')
+  
+  if(!nameInput || !discordInput || !platformRadio) return
+  
+  const name = nameInput.value.trim()
+  const platform = platformRadio.value
+  
+  if(!name || platform !== 'discord') return
+  
+  // First check localStorage history
+  const savedDiscord = loadDiscordName(name)
+  if(savedDiscord){
+    discordInput.value = savedDiscord
+    return
+  }
+  
+  // Then check previous entries
+  const entries = await loadEntries()
+  const previousEntry = entries.find(e => 
+    e.name.toLowerCase() === name.toLowerCase() && e.platform === 'discord' && e.discord
+  )
+  
+  if(previousEntry && previousEntry.discord){
+    discordInput.value = previousEntry.discord
+  }
+}
+
 function populateTeamDropdown(){
   const sel = document.getElementById('team')
   if(!sel) return
@@ -370,29 +414,38 @@ document.addEventListener('click', function(ev){
   // when selecting radio update image border and team dropdown
   if(t && t.name === 'platform'){
     document.querySelectorAll('.platform-img').forEach(i=>i.classList.remove('selected'))
+    const discordInput = document.getElementById('discord')
+    const discordFormGroup = discordInput ? discordInput.closest('.form-group') : null
     const fb = document.querySelector('input[name="platform"][value="facebook"]').checked
+    const discord = document.querySelector('input[name="platform"][value="discord"]').checked
+    
     if(fb){
       const img = document.getElementById('facebookImage')
       if(img) img.classList.add('selected')
-      // Hide Discord fields when Facebook is selected
-      const discordLabel = document.querySelector('label:has(#discord)')
-      if(discordLabel) discordLabel.style.display = 'none'
+      // Hide and clear required on Discord field when Facebook is selected
+      if(discordFormGroup) discordFormGroup.style.display = 'none'
+      if(discordInput) {
+        discordInput.removeAttribute('required')
+        discordInput.value = ''
+      }
       const viewRows = document.querySelectorAll('.view-row')
       viewRows.forEach((row, index) => {
         if(index === 0) { // First view-row is the Discord section
           row.style.display = 'none'
         }
       })
-    } else {
-      // Show Discord fields when Discord is selected or Facebook is deselected
-      const discordLabel = document.querySelector('label:has(#discord)')
-      if(discordLabel) discordLabel.style.display = 'block'
+    } else if(discord) {
+      // Show and set required on Discord field when Discord is selected
+      if(discordFormGroup) discordFormGroup.style.display = 'block'
+      if(discordInput) discordInput.setAttribute('required', 'required')
       const viewRows = document.querySelectorAll('.view-row')
       viewRows.forEach((row, index) => {
         if(index === 0) { // First view-row is the Discord section
           row.style.display = 'block'
         }
       })
+      // Auto-populate Discord name
+      autoPopulateDiscord()
     }
     populateTeamDropdown()
     renderReports()
@@ -800,6 +853,7 @@ async function addEntry(e){
     if(submitBtn) submitBtn.disabled = true
     await saveEntry(entry)
     saveName(name)
+    if(platform === 'discord' && discord) saveDiscordName(name, discord)
     document.getElementById('entryForm').reset()
     // Restore name after reset and re-populate team dropdown
     document.getElementById('name').value = name
@@ -963,6 +1017,7 @@ document.getElementById('team').addEventListener('change', () => {
 document.getElementById('name').addEventListener('input', () => {
   renderReports()
   autoPopulateTeam()
+  autoPopulateDiscord()
   validateFormFields()
 })
 
@@ -1192,6 +1247,20 @@ function setupLoginModal(){
   await checkAdminStatus()
   await loadTeams()
   loadSavedName()
+  
+  // Initialize Discord field visibility and required state based on default platform
+  const platformRadio = document.querySelector('input[name="platform"]:checked')
+  const discordInput = document.getElementById('discord')
+  const discordFormGroup = discordInput ? discordInput.closest('.form-group') : null
+  
+  if(platformRadio && platformRadio.value === 'facebook'){
+    if(discordFormGroup) discordFormGroup.style.display = 'none'
+    if(discordInput) discordInput.removeAttribute('required')
+  } else if(platformRadio && platformRadio.value === 'discord'){
+    if(discordFormGroup) discordFormGroup.style.display = 'block'
+    if(discordInput) discordInput.setAttribute('required', 'required')
+  }
+  
   renderReports()
   // Final form validation after everything is loaded
   validateFormFields()
