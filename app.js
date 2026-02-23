@@ -168,9 +168,26 @@ async function loadEntries(){
   return raw ? JSON.parse(raw) : []
 }
 
-async function checkDuplicateBook(book, team){
+async function checkDuplicateBook(book, team, excludeId = null){
   const entries = await loadEntries()
-  return entries.some(e => e.book.toLowerCase() === book.toLowerCase() && e.team === team && (e.status !== 'deleted' && e.status !== 'archived'))
+  return entries.some(e => 
+    e.book.toLowerCase() === book.toLowerCase() && 
+    e.team === team && 
+    (e.status !== 'deleted' && e.status !== 'archived') &&
+    (excludeId === null || String(e.id) !== String(excludeId))
+  )
+}
+
+async function checkDuplicateDiscordTeam(name, discord, team, excludeId = null){
+  if(!discord) return false
+  const entries = await loadEntries()
+  return entries.some(e => 
+    e.name.toLowerCase() === name.toLowerCase() && 
+    e.discord.toLowerCase() === discord.toLowerCase() && 
+    e.team !== team && 
+    (e.status !== 'deleted' && e.status !== 'archived') &&
+    (excludeId === null || String(e.id) !== String(excludeId))
+  )
 }
 
 async function loadTeams(){
@@ -197,7 +214,7 @@ async function initializeAdminUI(){
   }
   // Reload teams to ensure we have latest data (loadTeams calls renderTeamsList)
   await loadTeams()
-  const adminBtn = document.getElementById('adminBtn')
+  const adminBtn = document.getElementById('adminAccessBtn')
   if(adminBtn) adminBtn.textContent = 'Logout'
 }
 
@@ -400,7 +417,12 @@ async function clearAll(){
   if(!confirm(`Clear ${platformText}? This cannot be undone.`)) return
   if(useApi){
     const url = platform === 'all' ? API_BASE + '/entries' : API_BASE + '/entries?platform=' + platform
-    await fetch(url, {method:'DELETE'})
+    const headers = adminToken ? {'Authorization': 'Bearer ' + adminToken} : {}
+    const res = await fetch(url, {method:'DELETE', headers})
+    if(!res.ok){
+      showStatus('Clear failed: ' + (await res.text()), 'error')
+      return
+    }
   }else{
     if(platform === 'all'){
       localStorage.removeItem(STORAGE_KEY)
@@ -611,6 +633,23 @@ document.addEventListener('click', async function(ev){
       const favoriteScene = row.querySelector('.edit-favoriteScene') ? row.querySelector('.edit-favoriteScene').value.trim() : ''
       const team = row.querySelector('.edit-team').value.trim()
       const platform = row.querySelector('.edit-platform').value.trim()
+      
+      // Check for duplicate book when editing
+      const isDuplicate = await checkDuplicateBook(book, team, id)
+      if(isDuplicate){
+        showStatus('Duplicate Record, Book Already logged in this team','error')
+        return
+      }
+      
+      // Check for duplicate discord user in different team when editing
+      if(platform === 'discord' && discord){
+        const discordDuplicate = await checkDuplicateDiscordTeam(name, discord, team, id)
+        if(discordDuplicate){
+          showStatus('Error: This Discord user is already in a different team','error')
+          return
+        }
+      }
+      
       try{
         await updateEntry(id, {name, discord, author, book, pages, completionDate, favoriteScene, team, platform})
         showStatus('Entry updated', 'success')
@@ -732,6 +771,15 @@ async function addEntry(e){
   if(isDuplicate){
     showStatus('Duplicate Record, Book Already logged','error')
     return
+  }
+
+  // Check for duplicate discord user in different team
+  if(platform === 'discord' && discord){
+    const discordDuplicate = await checkDuplicateDiscordTeam(name, discord, team)
+    if(discordDuplicate){
+      showStatus('Error: This Discord user is already in a different team. Each Discord user can only be in one team.','error')
+      return
+    }
   }
 
   const entry = { 
@@ -1055,6 +1103,7 @@ if(headerDiv){
     if(isAdmin){
       adminLogout()
       adminBtn.textContent = 'Admin'
+      document.getElementById('adminTeams').style.display = 'none'
     }else{
       document.getElementById('adminLoginModal').style.display = 'flex'
     }
